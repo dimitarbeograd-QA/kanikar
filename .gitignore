@@ -1,0 +1,10 @@
+node_modules/
+server/kanicar.db
+server/kanicar.db-wal
+server/kanicar.db-shm
+server/kanicar.test.db
+server/kanicar.test.db-wal
+server/kanicar.test.db-shm
+playwright-report/
+test-results/
+.env

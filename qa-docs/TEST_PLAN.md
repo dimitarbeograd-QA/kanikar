@@ -35,3 +35,6 @@ checkout, вход/регистрация (auth) и достъп за собст
 ## 6. Изходни артефакти
 - `TEST_CASES.md` — детайлни тест кейсове.
 - Bug report-и през `.github/ISSUE_TEMPLATE/bug_report.md`.
+- Автоматизирани тестове: `tests/` (Playwright) и `server/tests/` (node:test) —
+  виж [`README.md`](../README.md#тестове). TC-23/TC-24/TC-28 по-горе имат
+  автоматизирано покритие в `tests/security.spec.js`.

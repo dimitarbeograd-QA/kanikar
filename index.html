@@ -3,9 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: blob: https://www.google-analytics.com; connect-src https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' blob:;">
-<meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
-<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data: blob: https://www.google-analytics.com; connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' blob:;">
 <meta name="referrer" content="no-referrer">
 <!-- Google Analytics — замени G-XXXXXXXXXX с вашия Measurement ID -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
@@ -3688,7 +3686,6 @@
         <div class="logo">⬡&nbsp;КАНИ<span>КАР</span></div>
         <div class="header-badge">Каталог <span id="catalogYear"></span></div>
       </div>
-      <button onclick="ownerLogin()" title="Собственик" style="background:none;border:none;cursor:pointer;font-size:0.85rem;padding:1px 4px;color:rgba(245,200,66,0.18);transition:color 0.25s;line-height:1;flex-shrink:0;margin-top:-2px;" onmouseenter="this.style.color='rgba(245,200,66,0.6)'" onmouseleave="this.style.color='rgba(245,200,66,0.18)'">⚙</button>
     </div>
     <div class="logo-sub">Гуми за<br>мотокари</div>
   </div>
@@ -4299,9 +4296,6 @@
           <span class="form-error-msg" id="errLiPassword">Въведи парола</span>
         </div>
         <div class="auth-switch-link">Нямаш акаунт? <span onclick="switchAuthTab('register')">Регистрирай се</span></div>
-        <div style="margin-top:1rem;text-align:center;display:none;">
-          <span onclick="closeAuthModal();ownerLogin();" style="font-family:'DM Mono',monospace;font-size:0.58rem;color:rgba(245,200,66,0.25);cursor:pointer;letter-spacing:0.5px;transition:color 0.2s;" onmouseenter="this.style.color='rgba(245,200,66,0.6)'" onmouseleave="this.style.color='rgba(245,200,66,0.25)'">⚙ вход като собственик</span>
-        </div>
       </div>
       <div class="auth-footer" id="loginFooter">
         <button class="btn-auth-cancel" onclick="closeAuthModal()">Отказ</button>
@@ -6158,39 +6152,30 @@ function emailInvoice() {
 }
 
 // ═══════════════════════════════════════════
-// AUTH — localStorage-based (client-side demo)
+// AUTH — real server backend (server/server.js)
 // ═══════════════════════════════════════════
-// NOTE: За продукция използвайте сървър + хеширане на паролите (bcrypt/argon2).
-// Тук паролите се пазят като sha-256 hash в localStorage само за демо цели.
+// Registration/login/logout/session state and the admin role live in
+// SQLite on the server, behind bcrypt password hashing and an httpOnly
+// session cookie. The client never sees a password hash and can never
+// set its own role — see SECURITY.md.
 
-const STORAGE_USERS_KEY = 'kk_users_v1';
-const STORAGE_SESSION_KEY = 'kk_session_v1';
-
-// ── Simple hash (SHA-256 via WebCrypto) ──
-async function hashPw(pw) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  let body = null;
+  try { body = await res.json(); } catch {}
+  return { ok: res.ok, status: res.status, body };
 }
 
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_USERS_KEY) || '{}'); } catch { return {}; }
-}
-function saveUsers(users) { localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users)); }
+let currentUser = null; // { email, name, surname, phone, address, company, eik, vat, role } — from the server, never from localStorage
 
-function getSession() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_SESSION_KEY) || 'null'); } catch { return null; }
-}
-function saveSession(email) { localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(email)); }
-function clearSession() { localStorage.removeItem(STORAGE_SESSION_KEY); }
-
-let currentUser = null; // { email, name, surname, phone, address, company, eik, vat, orders:[] }
-
-function loadSession() {
-  const email = getSession();
-  if (!email) return;
-  const users = getUsers();
-  if (users[email]) {
-    currentUser = users[email];
+async function loadSession() {
+  const { ok, body } = await apiFetch('/api/me');
+  if (ok && body && body.user) {
+    currentUser = body.user;
     updateAuthButton();
   }
 }
@@ -6406,19 +6391,28 @@ async function doRegister() {
 
   if (!ok) return;
 
-  const users = getUsers();
-  if (users[email]) {
+  const phone = document.getElementById('regPhone').value.trim();
+  const { status, body } = await apiFetch('/api/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, name, surname, phone, password: pw }),
+  });
+  if (status === 409) {
     document.getElementById('regEmail').classList.add('error');
     document.getElementById('errRegEmail').textContent = 'Имейлът вече е регистриран';
     document.getElementById('errRegEmail').classList.add('show');
     return;
   }
-  const hash = await hashPw(pw);
-  const phone = document.getElementById('regPhone').value.trim();
-  users[email] = { email, name, surname, phone, hash, address:'', company:'', eik:'', vat:'', orders:[], createdAt: new Date().toISOString() };
-  saveUsers(users);
-  currentUser = users[email];
-  saveSession(email);
+  if (status === 429) {
+    const ce = document.getElementById('errRegCaptcha');
+    ce.textContent = 'Твърде много опити. Опитайте отново след малко.';
+    ce.classList.add('show');
+    return;
+  }
+  if (!body || !body.user) {
+    showNotif('⚠ Възникна грешка. Опитайте отново.');
+    return;
+  }
+  currentUser = body.user;
   updateAuthButton();
 
   document.getElementById('registerForm').style.display = 'none';
@@ -6445,34 +6439,34 @@ async function doLogin() {
   }
   if (!ok) return;
 
-  const users = getUsers();
-  const user = users[email];
-  if (!user) {
-    document.getElementById('liEmail').classList.add('error');
-    document.getElementById('errLiEmail').textContent = 'Не е намерен акаунт с този имейл';
-    document.getElementById('errLiEmail').classList.add('show'); return;
-  }
-  const hash = await hashPw(pw);
-  if (hash !== user.hash) {
+  const { status, body } = await apiFetch('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password: pw }),
+  });
+  if (status === 429) {
     document.getElementById('liPassword').classList.add('error');
-    document.getElementById('errLiPassword').textContent = 'Грешна парола';
+    document.getElementById('errLiPassword').textContent = 'Твърде много опити. Опитайте отново след малко.';
     document.getElementById('errLiPassword').classList.add('show'); return;
   }
-  currentUser = user;
-  saveSession(email);
+  if (status !== 200 || !body || !body.user) {
+    document.getElementById('liPassword').classList.add('error');
+    document.getElementById('errLiPassword').textContent = 'Грешен имейл или парола';
+    document.getElementById('errLiPassword').classList.add('show'); return;
+  }
+  currentUser = body.user;
   updateAuthButton();
   document.getElementById('loginForm').style.display = 'none';
   document.getElementById('loginFooter').style.display = 'none';
-  document.getElementById('authSuccessTitle').textContent = 'Добре дошъл, ' + user.name + '!';
+  document.getElementById('authSuccessTitle').textContent = 'Добре дошъл, ' + currentUser.name + '!';
   document.getElementById('authSuccessMsg').textContent = 'Влязъл си успешно. Данните ти са заредени.';
   document.getElementById('authSuccess').classList.add('show');
   if(typeof gtag !== 'undefined') gtag('event','login',{method:'email'});
 }
 
 // ── LOGOUT ──
-function doLogout() {
+async function doLogout() {
+  await apiFetch('/api/logout', { method: 'POST' });
   currentUser = null;
-  clearSession();
   updateAuthButton();
   closeAuthModal();
   showNotif('👋 Излязохте от профила си');
@@ -6503,7 +6497,7 @@ function renderProfile() {
   grid.innerHTML = cells.map(c => `<div class="profile-info-cell"><div class="profile-info-key">${esc(c.label)}</div><div class="profile-info-val">${esc(c.val)}</div></div>`).join('');
 
   const ordersEl = document.getElementById('profileOrders');
-  const orders = currentUser.orders || [];
+  const orders = getMyOrders();
   if (orders.length === 0) {
     ordersEl.innerHTML = '<div style="font-family:\'DM Mono\',monospace;font-size:0.65rem;color:var(--muted)">Все още нямаш поръчки.</div>';
   } else {
@@ -6544,26 +6538,42 @@ function showEditPanel() {
 function hideEditPanel() {
   document.getElementById('editPanel').classList.remove('show');
 }
-function saveProfile() {
+async function saveProfile() {
   if (!currentUser) return;
-  currentUser.name    = sanitizeInput(document.getElementById('editName').value.trim())    || currentUser.name;
-  currentUser.surname = sanitizeInput(document.getElementById('editSurname').value.trim()) || currentUser.surname;
-  currentUser.phone   = sanitizeInput(document.getElementById('editPhone').value.trim());
-  currentUser.address = sanitizeInput(document.getElementById('editAddress').value.trim());
-  currentUser.company = sanitizeInput(document.getElementById('editCompany').value.trim());
-  currentUser.eik     = sanitizeInput(document.getElementById('editEik').value.trim());
-  currentUser.vat     = sanitizeInput(document.getElementById('editVat').value.trim());
-  const users = getUsers();
-  users[currentUser.email] = currentUser;
-  saveUsers(users);
-  saveSession(currentUser.email);
+  const { status, body } = await apiFetch('/api/profile', {
+    method: 'PUT',
+    body: JSON.stringify({
+      name:    sanitizeInput(document.getElementById('editName').value.trim()),
+      surname: sanitizeInput(document.getElementById('editSurname').value.trim()),
+      phone:   sanitizeInput(document.getElementById('editPhone').value.trim()),
+      address: sanitizeInput(document.getElementById('editAddress').value.trim()),
+      company: sanitizeInput(document.getElementById('editCompany').value.trim()),
+      eik:     sanitizeInput(document.getElementById('editEik').value.trim()),
+      vat:     sanitizeInput(document.getElementById('editVat').value.trim()),
+    }),
+  });
+  if (status !== 200 || !body || !body.user) {
+    showNotif('⚠ Профилът не можа да се запази');
+    return;
+  }
+  currentUser = body.user;
   updateAuthButton();
   hideEditPanel();
   renderProfile();
   showNotif('✓ Профилът е запазен');
 }
 
-// ── SAVE ORDER to user profile ──
+// Orders stay client-side (localStorage), scoped by the server-authenticated
+// email — a browser can only ever be logged in as its own account, so this
+// key can't be used to read someone else's orders. See SECURITY.md.
+function getMyOrders() {
+  if (!currentUser) return [];
+  const all = JSON.parse(localStorage.getItem('kk_all_orders_v1') || '[]');
+  return all.filter(o => o.customer && o.customer.email &&
+    o.customer.email.toLowerCase() === currentUser.email.toLowerCase());
+}
+
+// ── SAVE ORDER (global store, looked up by order ID and by customer email) ──
 function saveOrderToProfile(subtotal) {
   const now = new Date();
   const orderId = _lastOrder ? _lastOrder.number : ('KK-' + Date.now().toString(36).toUpperCase());
@@ -6585,15 +6595,6 @@ function saveOrderToProfile(subtotal) {
     })),
     customer: _lastOrder ? _lastOrder.customer : null,
   };
-  // Save to current user profile
-  if (currentUser) {
-    if (!currentUser.orders) currentUser.orders = [];
-    currentUser.orders.push(order);
-    const users = getUsers();
-    users[currentUser.email] = currentUser;
-    saveUsers(users);
-  }
-  // Always save to global orders store (for tracker lookup by order ID)
   const globalOrders = JSON.parse(localStorage.getItem('kk_all_orders_v1') || '[]');
   globalOrders.push(order);
   localStorage.setItem('kk_all_orders_v1', JSON.stringify(globalOrders));
@@ -6649,12 +6650,6 @@ function findOrderById(id) {
   const demo = JSON.parse(localStorage.getItem('kk_demo_orders_v1') || '[]');
   found = demo.find(o => o.id === uid || o.id.toUpperCase() === uid);
   if (found) return found;
-  // Check user profiles
-  const users = getUsers();
-  for (const u of Object.values(users)) {
-    const o = (u.orders || []).find(o => o.id === uid || o.id.toUpperCase() === uid);
-    if (o) return o;
-  }
   return null;
 }
 
@@ -6667,11 +6662,6 @@ function formatOrderDateTime(order) {
   return (order.date || '—') + t;
 }
 
-// ⚠️  Замени с реалния имейл на администратора
-const ADMIN_EMAIL = 'admin@kanikar.bg';
-
-// ── DEV / OWNER quick-access — без парола ──
-let _ownerBypass = false;
 function toggleAdminNav() {
   const grid = document.getElementById('adminNavGrid');
   if (!grid) return;
@@ -6682,90 +6672,82 @@ function closeAdminNav() {
   // Menu is always visible — no action needed
 }
 
+// The admin role is decided ONLY by the server (users.role column, set once
+// at seed time — see server/db.js). currentUser always comes from a server
+// JSON response (login/register/me), never from localStorage, so this can't
+// be forged from the console. There used to be a password-free "owner"
+// bypass here (ownerLogin()) — it has been removed; see SECURITY.md.
 function isAdmin() {
-  return _ownerBypass || (currentUser && currentUser.email === ADMIN_EMAIL);
-}
-
-function ownerLogin() {
-  _ownerBypass = true;
-  updateAdminButton();
-  openAdminPanel();
+  return !!(currentUser && currentUser.role === 'admin');
 }
 
 function updateAdminButton() {
-  // admin nav button removed — access via ⚙ gear icon next to logo
+  // admin nav button removed — access via profile panel once logged in as admin
 }
 
-// ── SEED demo data ──
+// Non-authenticating display rows so the admin dashboard/Clients tab still
+// has something to show out of the box. These can never log in or hold any
+// role — real accounts come from /api/admin/clients.
+const DEMO_CLIENTS = [
+  { email:'ivan@example.com', name:'Иван', surname:'Петров', phone:'+359 88 111 0001', company:'', eik:'', vat:'', address:'', createdAt: new Date(Date.now()-5*864e5).toISOString() },
+  { email:'petya@example.com', name:'Петя', surname:'Стоянова', phone:'+359 87 222 0002', company:'', eik:'', vat:'', address:'', createdAt: new Date(Date.now()-10*864e5).toISOString() },
+  { email:'georgi@firm.bg', name:'Георги', surname:'Колев', phone:'+359 89 333 0003', company:'Фирма Колев ЕООД', eik:'987654321', vat:'', address:'', createdAt: new Date(Date.now()-15*864e5).toISOString() },
+];
+const DEMO_ORDERS = [
+  { id:'KK-A1B2C3', date:'14.05.2026', total:593, items:3, payment:'cod', status:'new',
+    tires:[{size:'8.15-15',qty:2,price:245},{size:'6.00-9',qty:1,price:148}],
+    name:'Иван Петров', phone:'+359 88 111 0001', email:'ivan@example.com', note:'Доставка до склад' },
+  { id:'KK-D4E5F6', date:'15.05.2026', total:172, items:1, payment:'bank', status:'done',
+    tires:[{size:'6.50-10',qty:1,price:172}],
+    name:'Петя Стоянова', phone:'+359 87 222 0002', email:'petya@example.com', note:'' },
+  { id:'KK-G7H8I9', date:'16.05.2026', total:1180, items:5, payment:'cod', status:'new',
+    tires:[{size:'7.00-12',qty:5,price:198}],
+    name:'Георги Колев', phone:'+359 89 333 0003', email:'georgi@firm.bg', note:'Фирмена поръчка — ЕИК 987654321' },
+  { id:'KK-J1K2L3', date:'17.05.2026', total:268, items:1, payment:'bank', status:'done',
+    tires:[{size:'28×9-15',qty:1,price:268}],
+    name:'Иван Петров', phone:'+359 88 111 0001', email:'ivan@example.com', note:'' },
+  { id:'KK-M4N5O6', date:'19.05.2026', total:0, items:2, payment:'cod', status:'inquiry',
+    tires:[{size:'9.00-20',qty:2,price:null},{size:'10.00-20',qty:1,price:null}],
+    name:'Димитър Йорданов', phone:'+359 88 444 0004', email:'dimi@example.com', note:'Цена при запитване' },
+];
+
+// ── SEED demo data (orders only — real accounts live in the server DB) ──
 function seedDemoData() {
-  const users = getUsers();
-  // seed admin if missing
-  if (!users[ADMIN_EMAIL]) {
-    hashPw('admin123').then(hash => {
-      const u = getUsers();
-      u[ADMIN_EMAIL] = {
-        email: ADMIN_EMAIL, name:'Администратор', surname:'КаниКар',
-        phone:'Калин: 0885 074595', hash, address:'www.kanicar.com',
-        company:'КаниКар ЕООД', eik:'123456789', vat:'BG123456789',
-        orders:[], createdAt: new Date(Date.now()-30*864e5).toISOString(), role:'admin'
-      };
-      saveUsers(u);
-    });
-  }
-  // seed demo orders/clients
-  const demoEmails = ['ivan@example.com','petya@example.com','georgi@firm.bg'];
-  const demoNames  = [['Иван','Петров'],['Петя','Стоянова'],['Георги','Колев']];
-  const demoOrders = [
-    { id:'KK-A1B2C3', date:'14.05.2026', total:593, items:3, payment:'cod', status:'new',
-      tires:[{size:'8.15-15',qty:2,price:245},{size:'6.00-9',qty:1,price:148}],
-      name:'Иван Петров', phone:'+359 88 111 0001', email:'ivan@example.com', note:'Доставка до склад' },
-    { id:'KK-D4E5F6', date:'15.05.2026', total:172, items:1, payment:'bank', status:'done',
-      tires:[{size:'6.50-10',qty:1,price:172}],
-      name:'Петя Стоянова', phone:'+359 87 222 0002', email:'petya@example.com', note:'' },
-    { id:'KK-G7H8I9', date:'16.05.2026', total:1180, items:5, payment:'cod', status:'new',
-      tires:[{size:'7.00-12',qty:5,price:198}],
-      name:'Георги Колев', phone:'+359 89 333 0003', email:'georgi@firm.bg', note:'Фирмена поръчка — ЕИК 987654321' },
-    { id:'KK-J1K2L3', date:'17.05.2026', total:268, items:1, payment:'bank', status:'done',
-      tires:[{size:'28×9-15',qty:1,price:268}],
-      name:'Иван Петров', phone:'+359 88 111 0001', email:'ivan@example.com', note:'' },
-    { id:'KK-M4N5O6', date:'19.05.2026', total:0, items:2, payment:'cod', status:'inquiry',
-      tires:[{size:'9.00-20',qty:2,price:null},{size:'10.00-20',qty:1,price:null}],
-      name:'Димитър Йорданов', phone:'+359 88 444 0004', email:'dimi@example.com', note:'Цена при запитване' },
-  ];
-  // store demo orders in localStorage (separate key)
   if (!localStorage.getItem('kk_demo_orders_v1')) {
-    localStorage.setItem('kk_demo_orders_v1', JSON.stringify(demoOrders));
+    localStorage.setItem('kk_demo_orders_v1', JSON.stringify(DEMO_ORDERS));
   }
-  demoEmails.forEach((em, i) => {
-    if (!users[em]) {
-      users[em] = {
-        email: em, name: demoNames[i][0], surname: demoNames[i][1],
-        phone: '+359 88 00' + (1000+i), hash: '', address:'',
-        company: i===2?'Фирма Колев ЕООД':'', eik: i===2?'987654321':'',
-        vat:'', orders:[], createdAt: new Date(Date.now()-(i+1)*5*864e5).toISOString()
-      };
-    }
-  });
-  saveUsers(users);
 }
 
 function getAllOrders() {
-  // combine demo orders + real orders from all users
   const demo = JSON.parse(localStorage.getItem('kk_demo_orders_v1') || '[]');
-  const users = getUsers();
-  const real = [];
-  Object.values(users).forEach(u => {
-    if (!u.orders) return;
-    u.orders.forEach(o => {
-      real.push({ ...o, name: u.name+' '+u.surname, phone: u.phone, email: u.email, status: o.status||'new' });
-    });
-  });
+  const real = JSON.parse(localStorage.getItem('kk_all_orders_v1') || '[]').map(o => ({
+    ...o,
+    name:  o.customer ? o.customer.name  : (o.name  || ''),
+    phone: o.customer ? o.customer.phone : (o.phone || ''),
+    email: o.customer ? o.customer.email : (o.email || ''),
+    status: o.status || 'new',
+  }));
   return [...demo, ...real].sort((a,b) => b.id > a.id ? 1 : -1);
 }
 
+// Registered clients, fetched from the server (admin-only, role-checked
+// server-side) and refreshed whenever the admin panel is opened — see
+// refreshAdminClients(). Merged with the non-authenticating demo rows.
+let _adminClientsCache = null;
+async function refreshAdminClients() {
+  const { ok, body } = await apiFetch('/api/admin/clients');
+  _adminClientsCache = ok && body ? body.clients : [];
+}
+
 function getAllClients() {
-  const users = getUsers();
-  return Object.values(users).filter(u => u.email !== ADMIN_EMAIL);
+  const real = _adminClientsCache || [];
+  const allOrders = JSON.parse(localStorage.getItem('kk_all_orders_v1') || '[]');
+  const withOrders = (u) => ({
+    ...u,
+    orders: allOrders.filter(o => o.customer && o.customer.email &&
+      o.customer.email.toLowerCase() === u.email.toLowerCase()),
+  });
+  return [...real, ...DEMO_CLIENTS].map(withOrders);
 }
 
 // ── PRICES (live-editable, stored in localStorage) ──
@@ -6784,6 +6766,7 @@ function openAdminPanel() {
   document.getElementById('adminPanel').classList.add('open');
   document.body.style.overflow = 'hidden';
   adminTab('dash');
+  refreshAdminClients().then(() => { if (adminCurrentTab === 'clients') adminTab('clients'); });
 }
 function closeAdminPanel() {
   document.getElementById('adminPanel').classList.remove('open');
@@ -7494,14 +7477,6 @@ function changeOrderStatus(id, status) {
   const global = JSON.parse(localStorage.getItem('kk_all_orders_v1') || '[]');
   const gi = global.findIndex(o => o.id === id);
   if (gi >= 0) { global[gi].status = status; localStorage.setItem('kk_all_orders_v1', JSON.stringify(global)); }
-  // update in user orders
-  const users = getUsers();
-  Object.values(users).forEach(u => {
-    if (!u.orders) return;
-    const oi = u.orders.findIndex(o => o.id === id);
-    if (oi >= 0) u.orders[oi].status = status;
-  });
-  saveUsers(users);
   showNotif('✓ Статусът е обновен: ' + (STATUS_LABELS[status]?.label || status));
   // Refresh the orders list in the background (adminContent)
   const c = document.getElementById('adminContent');
@@ -7686,8 +7661,7 @@ function renderAdminClients(c) {
 }
 
 function viewClientDetail(email) {
-  const users = getUsers();
-  const u = users[email];
+  const u = getAllClients().find(x => x.email.toLowerCase() === email.toLowerCase());
   if (!u) return;
   const orderRows = (u.orders||[]).slice().reverse().map(o =>
     `<div class="admin-detail-row"><span>${esc(o.id)}</span><span>${o.total ? o.total+' лв.' : 'Запитване'}</span></div>`
