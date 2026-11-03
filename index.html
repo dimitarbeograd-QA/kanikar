@@ -3699,6 +3699,31 @@ header{flex-wrap:wrap;gap:.5rem 1rem}
 .footer-map iframe{display:block;width:100%;height:240px;border:0}
 .inquiry-fab{z-index:90}
 @media(max-width:640px){.inquiry-fab{right:.6rem!important;bottom:.6rem!important;padding:.5rem .8rem!important;font-size:.78rem!important}.footer-map iframe{height:200px}.site-footer{padding-bottom:5rem}}
+
+/* ═══ ФУТЪР: нова подредба (заглавие → описание → 3 карти → авторски права) ═══ */
+.site-footer{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.5rem;align-items:stretch;max-width:1280px;margin-inline:auto;padding:3rem clamp(1rem,4vw,2.5rem) 2rem;text-align:center;
+  grid-template-areas:"brand brand brand" "tag tag tag" "contacts service map" "copy copy copy" "by by by"}
+.site-footer > div:first-child{display:contents}
+.footer-brand{grid-area:brand;font-size:2rem;text-align:center}
+.footer-tagline{grid-area:tag;max-width:860px;margin:0 auto;text-align:center;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.footer-copyright{grid-area:copy;text-align:center;margin-top:.5rem}
+.site-footer > div:first-child > div:last-child{grid-area:by;text-align:center}
+.footer-contacts,.footer-service,.footer-map-card{background:#141414;border:1px solid var(--border);border-radius:14px;padding:1.4rem 1.2rem;display:flex;flex-direction:column;align-items:center;gap:.7rem;min-width:0}
+.footer-contacts{grid-area:contacts}
+.footer-service{grid-area:service;justify-content:flex-start}
+.footer-map-card{grid-area:map}
+.footer-contacts-title,.footer-service-title{text-align:center;width:100%}
+.footer-contact-row{width:100%;justify-content:center}
+.footer-map{flex:1;min-height:240px;margin-top:0}
+.footer-map iframe{height:100%;min-height:240px}
+@media(max-width:1000px){
+  .site-footer{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"brand brand" "tag tag" "contacts service" "map map" "copy copy" "by by"}
+  .footer-map iframe{min-height:260px}
+}
+@media(max-width:640px){
+  .site-footer{grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "tag" "contacts" "service" "map" "copy" "by";padding:2rem 1rem 5rem}
+  .footer-brand{font-size:1.6rem}
+}
 </style>
 </head>
 <body>
@@ -3983,7 +4008,6 @@ header{flex-wrap:wrap;gap:.5rem 1rem}
         <span class="footer-contact-val">Пон–Пет: 08:00–17:30</span>
       </div>
     </div>
-    <div class="footer-map"><iframe src="https://www.google.com/maps?q=%D1%83%D0%BB.+%D0%9B%D1%8E%D0%B4%D0%BE%D0%B2%D0%B8%D0%BA%D0%BE+%D0%9C%D0%B8%D0%BB%D0%B0%D0%BD%D0%B5%D0%B7%D0%B8+13,+3600+%D0%9B%D0%BE%D0%BC,+%D0%91%D1%8A%D0%BB%D0%B3%D0%B0%D1%80%D0%B8%D1%8F&z=17&output=embed&hl=bg" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="КаниКар ЕООД на картата — ул. Людовико Миланези 13, Лом"></iframe></div>
   </div>
 
   <div class="footer-service">
@@ -3999,6 +4023,10 @@ header{flex-wrap:wrap;gap:.5rem 1rem}
   </span>
 </a>
     </div>
+  </div>
+  <div class="footer-map-card">
+    <div class="footer-contacts-title">📍 Къде се намираме</div>
+    <div class="footer-map"><iframe src="https://www.google.com/maps?q=%D1%83%D0%BB.+%D0%9B%D1%8E%D0%B4%D0%BE%D0%B2%D0%B8%D0%BA%D0%BE+%D0%9C%D0%B8%D0%BB%D0%B0%D0%BD%D0%B5%D0%B7%D0%B8+13,+3600+%D0%9B%D0%BE%D0%BC,+%D0%91%D1%8A%D0%BB%D0%B3%D0%B0%D1%80%D0%B8%D1%8F&z=17&output=embed&hl=bg" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="КаниКар ЕООД на картата — ул. Людовико Миланези 13, Лом"></iframe></div>
   </div>
 </footer>
 
