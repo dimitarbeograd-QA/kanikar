@@ -286,7 +286,7 @@
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
-  @media (prefers-reduced-motion: reduce) {
+  @media not all {
     .hero-title .ht-y, .hero-title .ht-w { animation: none; }
   }
 
@@ -2236,7 +2236,7 @@
     0%   { transform: translateX(-50%); }
     100% { transform: translateX(0); }
   }
-  @media (prefers-reduced-motion: reduce) {
+  @media not all {
     .machine-track { animation: none; transform: translateX(-50%); }
   }
 
@@ -2291,7 +2291,7 @@
     0%   { transform: translateX(0); }
     100% { transform: translateX(-50%); }
   }
-  @media (prefers-reduced-motion: reduce) {
+  @media not all {
     .brands-track { animation: none; }
   }
   @media (max-width: 600px) {
@@ -3675,6 +3675,31 @@
     #invoicePrintFrame { display: block !important; position: static !important; }
   }
 </style>
+<style id="final-layout-fixes">
+/* ═══ FINAL LAYOUT FIXES — центриране, без застъпване, адаптивност ═══ */
+html,body{max-width:100%;overflow-x:hidden}
+img,svg,video,canvas,iframe{max-width:100%}
+header{flex-wrap:wrap;gap:.5rem 1rem}
+.mounting-banner,.contact-bar,.stats-bar{justify-content:center;text-align:center}
+.contact-bar .cbar-left,.contact-bar .cbar-right{justify-content:center;flex-wrap:wrap}
+.cbar-item{text-align:center}
+.hero{text-align:center}
+.hero-company{justify-content:center}
+.hero-title,.hero p{margin-inline:auto;text-align:center}
+.hero::before{left:50%;right:auto;transform:translateX(-50%);font-size:clamp(5rem,22vw,12rem);white-space:nowrap}
+.hero *{max-width:100%}
+.service-text,.service-cta,.catalog-toggle-bar{text-align:center}
+.service-cta{justify-content:center;display:flex;flex-wrap:wrap;gap:.6rem}
+.site-footer{text-align:center}
+.site-footer > div{min-width:0;display:flex;flex-direction:column;align-items:center}
+.footer-tagline,.footer-service-text{text-align:center}
+.footer-contact-row{justify-content:center;text-align:center;max-width:100%}
+.footer-contact-info{text-align:center}
+.footer-map{width:100%;margin-top:.9rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#111}
+.footer-map iframe{display:block;width:100%;height:240px;border:0}
+.inquiry-fab{z-index:90}
+@media(max-width:640px){.inquiry-fab{right:.6rem!important;bottom:.6rem!important;padding:.5rem .8rem!important;font-size:.78rem!important}.footer-map iframe{height:200px}.site-footer{padding-bottom:5rem}}
+</style>
 </head>
 <body>
 
@@ -3958,6 +3983,7 @@
         <span class="footer-contact-val">Пон–Пет: 08:00–17:30</span>
       </div>
     </div>
+    <div class="footer-map"><iframe src="https://www.google.com/maps?q=%D1%83%D0%BB.+%D0%9B%D1%8E%D0%B4%D0%BE%D0%B2%D0%B8%D0%BA%D0%BE+%D0%9C%D0%B8%D0%BB%D0%B0%D0%BD%D0%B5%D0%B7%D0%B8+13,+3600+%D0%9B%D0%BE%D0%BC,+%D0%91%D1%8A%D0%BB%D0%B3%D0%B0%D1%80%D0%B8%D1%8F&z=17&output=embed&hl=bg" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="КаниКар ЕООД на картата — ул. Людовико Миланези 13, Лом"></iframe></div>
   </div>
 
   <div class="footer-service">
